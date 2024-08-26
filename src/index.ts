@@ -7,13 +7,15 @@ const port = 3000;
 // Middleware para processar JSON no corpo da requisição
 app.use(express.json());
 
+//https://docs.anythingllm.com/features/embedding-models => para treinar a ia
+
 // Endpoint que interage com o modelo
 app.get("/hello/:name", async (req: Request, res: Response) => {
   const name = req.params.name;
 
   try {
     const response = await axios.post("http://localhost:11434/api/generate", {
-      model: "llama3",
+      model: "llama3.1",
       prompt: name,
       stream: false,
     });
