@@ -1,32 +1,34 @@
+import ollama from "ollama";
 import express, { Request, Response } from "express";
-import axios from "axios";
 
 const app = express();
 const port = 3000;
-
-// Middleware para processar JSON no corpo da requisição
 app.use(express.json());
 
-//https://docs.anythingllm.com/features/embedding-models => para treinar a ia
+async function getModelResponse(prompt: string): Promise<string> {
+  try {
+    const response = await ollama.chat({
+      model: "llama3.1",
+      messages: [{ role: "user", content: prompt }],
+    });
 
-// Endpoint que interage com o modelo
+    return response.message.content;
+  } catch (error) {
+    throw new Error(`Erro ao executar comandos: ${error}`);
+  }
+}
+
 app.get("/hello/:name", async (req: Request, res: Response) => {
   const name = req.params.name;
 
   try {
-    const response = await axios.post("http://localhost:11434/api/generate", {
-      model: "llama3.1",
-      prompt: name,
-      stream: false,
-    });
-    const respData = response.data.response.toString();
-    res.send(respData);
-  } catch (error) {
-    res.status(500).send(`Erro ao executar comandos: ${error}`);
+    const response = await getModelResponse(name);
+    res.send(response);
+  } catch (error: any) {
+    res.status(500).send(error.message);
   }
 });
 
-// Inicia o servidor
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });

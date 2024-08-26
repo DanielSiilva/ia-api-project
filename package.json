@@ -21,6 +21,7 @@
     "@types/axios": "^0.14.0",
     "axios": "^1.7.5",
     "express": "^4.19.2",
+    "ollama": "^0.5.8",
     "ollama-node": "^0.1.28"
   }
 }
