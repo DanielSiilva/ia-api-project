@@ -31,7 +31,6 @@ async function getModelResponse(
 
     const response = await ollama.chat({
       model: "llama3.1",
-
       messages: [
         {
           role: "system",
