@@ -18,13 +18,20 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@langchain/community": "^0.2.31",
+    "@langchain/core": "^0.2.30",
+    "@langchain/mongodb": "^0.0.5",
+    "@langchain/ollama": "^0.0.4",
+    "@langchain/openai": "^0.2.8",
     "@types/axios": "^0.14.0",
     "@types/mongodb": "^4.0.7",
+    "add": "^2.0.6",
     "axios": "^1.7.5",
     "express": "^4.19.2",
     "langchain": "^0.2.17",
     "mongodb": "^6.8.0",
     "ollama": "^0.5.8",
-    "ollama-node": "^0.1.28"
+    "ollama-node": "^0.1.28",
+    "yarn": "^1.22.22"
   }
 }
