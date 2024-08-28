@@ -18,6 +18,7 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@google-cloud/aiplatform": "^3.27.0",
     "@langchain/community": "^0.2.31",
     "@langchain/core": "^0.2.30",
     "@langchain/mongodb": "^0.0.5",
