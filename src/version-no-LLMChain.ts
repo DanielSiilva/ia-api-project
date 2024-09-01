@@ -1,81 +1,110 @@
-import { MongoClient } from "mongodb";
-import ollama from "ollama";
-import express, { Request, Response } from "express";
+// import express, { Request, Response } from "express";
+// import { ChatOllama } from "@langchain/ollama";
+// import {
+//   ChatPromptTemplate,
+//   MessagesPlaceholder,
+// } from "@langchain/core/prompts";
+// import { createStructuredChatAgent, AgentExecutor } from "langchain/agents";
+// import { BufferMemory } from "langchain/memory";
+// import { MongoDBChatMessageHistory } from "@langchain/mongodb";
+// import { connectMongoDB, collection, sessionId } from "./mongo";
+// import { MongoUserQueryTool, connectUserCollection } from "./mongoQueryTool";
 
-const app = express();
-const port = 3000;
-app.use(express.json());
+// const app = express();
+// app.use(express.json());
 
-const uri = "mongodb://localhost:27017";
-const client = new MongoClient(uri);
+// let agentExecutor: AgentExecutor | null = null;
 
-let database: any;
+// async function setupAgent() {
+//   // Conectando ao MongoDB para salvar o histórico de chat
+//   await connectMongoDB();
 
-async function connectToDatabase() {
-  try {
-    await client.connect();
-    database = client.db("7SYYB-TY4RM-4UK7A-DG8MN");
-    console.log("Conectado ao banco de dados MongoDB com sucesso!");
-  } catch (error) {
-    console.error("Erro ao conectar ao MongoDB:", error);
-    process.exit(1);
-  }
-}
+//   // Conectando à coleção `local_users` para consultas de usuários
+//   await connectUserCollection();
 
-async function getModelResponse(
-  prompt: string,
-  context: object
-): Promise<string> {
-  try {
-    const contextString = JSON.stringify(context);
+//   // Configuração do modelo LLM
+//   const llm = new ChatOllama({
+//     model: "llama3.1",
+//     streaming: true,
+//     temperature: 0,
+//   });
 
-    const response = await ollama.chat({
-      model: "llama3.1",
-      messages: [
-        {
-          role: "system",
-          content: `Use these data to answer questions: ${contextString}`,
-        },
-        { role: "user", content: prompt },
-      ],
-    });
-    console.log("🚀 ~ response:", response);
+//   // Definindo as ferramentas
+//   const tools = [new MongoUserQueryTool()];
 
-    return response.message.content;
-  } catch (error) {
-    throw new Error(`Erro ao executar comandos: ${error}`);
-  }
-}
+//   // Definindo o template de prompt
+//   const prompt = ChatPromptTemplate.fromMessages([
+//     [
+//       "system",
+//       `You are a helpful assistant. You have access to the following tools to assist the user:
 
-app.post("/query/:collection/:query", async (req: Request, res: Response) => {
-  const { collection, query } = req.params;
-  const { prompt } = req.body;
+//       {tools}
 
-  console.log("collection", collection);
-  console.log("query", query);
+//       If the user asks about someone, query the 'local_users' collection and include the result in your response.
 
-  console.log("prompt", prompt);
+//       Use a json blob to specify a tool by providing an action key (tool name) and an action_input key (tool input).
 
-  try {
-    const coll = database.collection(collection);
-    const queryObject = JSON.parse(query);
-    const documents = await coll.find(queryObject).toArray();
+//       Valid "action" values: "Final Answer" or {tool_names}
 
-    if (documents.length === 0) {
-      res.status(404).send("Nenhum documento encontrado.");
-      return;
-    }
+//       After providing the response, always ask: "What more can I help you with?"
 
-    const response = await getModelResponse(prompt, documents);
+//       Format is Action:\`\`\`$JSON_BLOB\`\`\`then Observation`,
+//     ],
+//     ["placeholder", "{chat_history}"],
+//     [
+//       "human",
+//       `{input}
 
-    res.send(response);
-  } catch (error: any) {
-    res.status(500).send(error.message);
-  }
-});
+//       {agent_scratchpad}
+//       (reminder to respond in a JSON blob no matter what)`,
+//     ],
+//   ]);
 
-connectToDatabase().then(() => {
-  app.listen(port, () => {
-    console.log(`Servidor rodando em http://localhost:${port}`);
-  });
-});
+//   // Criando o agente de chat
+//   const agent = await createStructuredChatAgent({
+//     llm,
+//     tools,
+//     prompt,
+//   });
+
+//   // Configuração da memória do agente
+//   const memory = new BufferMemory({
+//     chatHistory: new MongoDBChatMessageHistory({
+//       collection,
+//       sessionId,
+//     }),
+//     memoryKey: "chat_history",
+//     inputKey: "input",
+//     outputKey: "output",
+//   });
+
+//   // Criando o executor do agente
+//   agentExecutor = new AgentExecutor({
+//     agent,
+//     tools,
+//     memory,
+//     maxIterations: 20,
+//   });
+// }
+
+// app.post("/chat", async (req: Request, res: Response) => {
+//   try {
+//     const { input } = req.body;
+//     console.log("input", input);
+
+//     if (!agentExecutor) {
+//       return res.status(500).json({ error: "Agent not initialized" });
+//     }
+
+//     const result = await agentExecutor.invoke({ input });
+//     res.json({ result });
+//   } catch (error) {
+//     console.error("Erro no chat:", error);
+//     res.status(500).json({ error: "Erro ao processar a solicitação" });
+//   }
+// });
+
+// app.listen(3000, async () => {
+//   console.log("Servidor rodando na porta 3000");
+//   await setupAgent(); // Inicializa o agente ao iniciar o servidor
+// });

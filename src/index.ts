@@ -1,232 +1,87 @@
-// import { ChatOllama } from "@langchain/ollama";
-// import {
-//   ChatPromptTemplate,
-//   MessagesPlaceholder,
-// } from "@langchain/core/prompts";
-// import { createStructuredChatAgent, AgentExecutor } from "langchain/agents";
-// import { BufferMemory } from "langchain/memory";
-// import { MongoDBChatMessageHistory } from "@langchain/mongodb";
-// import { connectMongoDB, collection, sessionId } from "./mongo";
-// import { MongoUserQueryTool, connectUserCollection } from "./mongoQueryTool";
-
-// async function main() {
-//   // Conectando ao MongoDB para salvar o histórico de chat
-//   await connectMongoDB();
-
-//   // Conectando à coleção `local_users` para consultas de usuários
-//   await connectUserCollection();
-
-//   // Configuração do modelo LLM
-//   const llm = new ChatOllama({
-//     model: "llama3.1",
-//     streaming: true,
-//     temperature: 0,
-//   });
-
-//   // Definindo as ferramentas
-//   const tools = [new MongoUserQueryTool()];
-
-//   // Definindo o template de prompt
-//   const prompt = ChatPromptTemplate.fromMessages([
-//     [
-//       "system",
-//       `Respond to the human as helpfully and accurately as possible. You have access to the following tools:
-
-//       {tools}
-
-//       Use a json blob to specify a tool by providing an action key (tool name) and an action_input key (tool input).
-
-//       Valid "action" values: "Final Answer" or {tool_names}
-
-//       Provide only ONE action per $JSON_BLOB, as shown:
-
-//       \`\`\`
-//       {{
-//         "action": $TOOL_NAME,
-//         "action_input": $INPUT
-//       }}
-//       \`\`\`
-
-//       Follow this format:
-//       Question: input question to answer
-//       Thought: consider previous and subsequent steps
-//       Action:
-//       \`\`\`
-//       $JSON_BLOB
-//       \`\`\`
-//       Observation: action result
-//       ... (repeat Thought/Action/Observation N times)
-//       Thought: I know what to respond
-//       Action:
-//       \`\`\`
-//       {{
-//         "action": "Final Answer",
-//         "action_input": "Final response to human"
-//       }}
-
-//       Begin! Reminder to ALWAYS respond with a valid json blob of a single action. Use tools if necessary. Respond directly if appropriate. Format is Action:\`\`\`$JSON_BLOB\`\`\`then Observation`,
-//     ],
-//     ["placeholder", "{chat_history}"],
-//     [
-//       "human",
-//       `{input}
-
-//       {agent_scratchpad}
-//       (reminder to respond in a JSON blob no matter what)`,
-//     ],
-//   ]);
-
-//   // Criando o agente de chat
-//   const agent = await createStructuredChatAgent({
-//     llm,
-//     tools,
-//     prompt,
-//   });
-
-//   // Configuração da memória do agente
-//   const memory = new BufferMemory({
-//     chatHistory: new MongoDBChatMessageHistory({
-//       collection,
-//       sessionId,
-//     }),
-//     memoryKey: "chat_history",
-//     inputKey: "input",
-//     outputKey: "output",
-//   });
-
-//   // Criando o executor do agente
-//   const agentExecutor = new AgentExecutor({
-//     agent,
-//     tools,
-//     memory,
-//     maxIterations: 1,
-//   });
-
-//   // Testando o agente com a busca por "Daniel Sousa"
-//   const res1 = await agentExecutor.invoke({
-//     input: '{"name": "Daniel Sousa"}', // Consultando a coleção `local_users` por um nome específico
-//   });
-
-//   console.log("Resultado da Consulta:", res1);
-
-//   // Segundo teste: perguntando ao agente sobre o nome
-//   const res2 = await agentExecutor.invoke({
-//     input: "What is my name?",
-//   });
-
-//   console.log("Resultado da Pergunta:", res2);
-// }
-
-// // Executando a função principal
-// main().catch(console.error);
-
+import { MongoClient } from "mongodb";
+import axios from "axios";
 import express, { Request, Response } from "express";
-import { ChatOllama } from "@langchain/ollama";
-import {
-  ChatPromptTemplate,
-  MessagesPlaceholder,
-} from "@langchain/core/prompts";
-import { createStructuredChatAgent, AgentExecutor } from "langchain/agents";
-import { BufferMemory } from "langchain/memory";
-import { MongoDBChatMessageHistory } from "@langchain/mongodb";
-import { connectMongoDB, collection, sessionId } from "./mongo";
-import { MongoUserQueryTool, connectUserCollection } from "./mongoQueryTool";
 
 const app = express();
+const port = 3000;
 app.use(express.json());
 
-let agentExecutor: AgentExecutor | null = null;
+const uri = "mongodb://localhost:27017";
+const client = new MongoClient(uri);
 
-async function setupAgent() {
-  // Conectando ao MongoDB para salvar o histórico de chat
-  await connectMongoDB();
+let database: any;
 
-  // Conectando à coleção `local_users` para consultas de usuários
-  await connectUserCollection();
-
-  // Configuração do modelo LLM
-  const llm = new ChatOllama({
-    model: "llama3.1",
-    streaming: true,
-    temperature: 0,
-  });
-
-  // Definindo as ferramentas
-  const tools = [new MongoUserQueryTool()];
-
-  // Definindo o template de prompt
-  const prompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
-      `You are a helpful assistant. You have access to the following tools to assist the user:
-
-      {tools}
-
-      If the user asks about someone, query the 'local_users' collection and include the result in your response.
-
-      Use a json blob to specify a tool by providing an action key (tool name) and an action_input key (tool input).
-
-      Valid "action" values: "Final Answer" or {tool_names}
-
-      After providing the response, always ask: "What more can I help you with?"
-
-      Format is Action:\`\`\`$JSON_BLOB\`\`\`then Observation`,
-    ],
-    ["placeholder", "{chat_history}"],
-    [
-      "human",
-      `{input}
-
-      {agent_scratchpad}
-      (reminder to respond in a JSON blob no matter what)`,
-    ],
-  ]);
-
-  // Criando o agente de chat
-  const agent = await createStructuredChatAgent({
-    llm,
-    tools,
-    prompt,
-  });
-
-  // Configuração da memória do agente
-  const memory = new BufferMemory({
-    chatHistory: new MongoDBChatMessageHistory({
-      collection,
-      sessionId,
-    }),
-    memoryKey: "chat_history",
-    inputKey: "input",
-    outputKey: "output",
-  });
-
-  // Criando o executor do agente
-  agentExecutor = new AgentExecutor({
-    agent,
-    tools,
-    memory,
-    maxIterations: 20,
-  });
+async function connectToDatabase() {
+  try {
+    await client.connect();
+    database = client.db("7SYYB-TY4RM-4UK7A-DG8MN");
+    console.log("Conectado ao banco de dados MongoDB com sucesso!");
+  } catch (error) {
+    console.error("Erro ao conectar ao MongoDB:", error);
+    process.exit(1);
+  }
 }
 
-app.post("/chat", async (req: Request, res: Response) => {
+async function getModelResponse(
+  prompt: string,
+  context: object
+): Promise<string> {
   try {
-    const { input } = req.body;
-    console.log("input", input);
+    const contextString = JSON.stringify(context);
 
-    if (!agentExecutor) {
-      return res.status(500).json({ error: "Agent not initialized" });
+    const response = await axios.post(
+      "http://34.45.116.129:11434/v1/chat/completions",
+      {
+        model: "llama3.1",
+        messages: [
+          {
+            role: "system",
+            content: `Use these data to answer questions: ${contextString}`,
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 150,
+      }
+    );
+
+    console.log("🚀 ~ response:", response.data);
+
+    return response.data.choices[0].message.content;
+  } catch (error) {
+    throw new Error(`Erro ao executar comandos: ${error}`);
+  }
+}
+
+app.post("/query/:collection/:query", async (req: Request, res: Response) => {
+  const { collection, query } = req.params;
+  const { prompt } = req.body;
+
+  console.log("collection", collection);
+  console.log("query", query);
+
+  console.log("prompt", prompt);
+
+  try {
+    const coll = database.collection(collection);
+    const queryObject = JSON.parse(query);
+    const documents = await coll.find(queryObject).toArray();
+
+    if (documents.length === 0) {
+      res.status(404).send("Nenhum documento encontrado.");
+      return;
     }
 
-    const result = await agentExecutor.invoke({ input });
-    res.json({ result });
-  } catch (error) {
-    console.error("Erro no chat:", error);
-    res.status(500).json({ error: "Erro ao processar a solicitação" });
+    const response = await getModelResponse(prompt, documents);
+
+    res.send(response);
+  } catch (error: any) {
+    res.status(500).send(error.message);
   }
 });
 
-app.listen(3000, async () => {
-  console.log("Servidor rodando na porta 3000");
-  await setupAgent(); // Inicializa o agente ao iniciar o servidor
+connectToDatabase().then(() => {
+  app.listen(port, () => {
+    console.log(`Servidor rodando em http://localhost:${port}`);
+  });
 });
