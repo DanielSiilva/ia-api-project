@@ -1,44 +1,26 @@
-import { MongoClient } from "mongodb";
 import axios from "axios";
 import express, { Request, Response } from "express";
 
 const app = express();
 const port = 3000;
+
 app.use(express.json());
 
-const uri = "mongodb://localhost:27017";
-const client = new MongoClient(uri);
-
-let database: any;
-
-async function connectToDatabase() {
+async function getModelResponse(prompt: string): Promise<string> {
   try {
-    await client.connect();
-    database = client.db("7SYYB-TY4RM-4UK7A-DG8MN");
-    console.log("Conectado ao banco de dados MongoDB com sucesso!");
-  } catch (error) {
-    console.error("Erro ao conectar ao MongoDB:", error);
-    process.exit(1);
-  }
-}
-
-async function getModelResponse(
-  prompt: string,
-  context: object
-): Promise<string> {
-  try {
-    const contextString = JSON.stringify(context);
-
     const response = await axios.post(
       "http://34.45.116.129:11434/v1/chat/completions",
       {
-        model: "llama3.1",
+        model: "llama3",
         messages: [
           {
             role: "system",
-            content: `Use these data to answer questions: ${contextString}`,
+            content: "You are a helpful assistant.",
           },
-          { role: "user", content: prompt },
+          {
+            role: "user",
+            content: prompt,
+          },
         ],
         temperature: 0.7,
         max_tokens: 150,
@@ -53,35 +35,20 @@ async function getModelResponse(
   }
 }
 
-app.post("/query/:collection/:query", async (req: Request, res: Response) => {
-  const { collection, query } = req.params;
+app.post("/chat", async (req: Request, res: Response) => {
   const { prompt } = req.body;
-
-  console.log("collection", collection);
-  console.log("query", query);
 
   console.log("prompt", prompt);
 
   try {
-    const coll = database.collection(collection);
-    const queryObject = JSON.parse(query);
-    const documents = await coll.find(queryObject).toArray();
-
-    if (documents.length === 0) {
-      res.status(404).send("Nenhum documento encontrado.");
-      return;
-    }
-
-    const response = await getModelResponse(prompt, documents);
-
-    res.send(response);
+    const response = await getModelResponse(prompt);
+    res.json({ response });
   } catch (error: any) {
-    res.status(500).send(error.message);
+    console.error("Erro no chat:", error);
+    res.status(500).json({ error: "Erro ao processar a solicitação" });
   }
 });
 
-connectToDatabase().then(() => {
-  app.listen(port, () => {
-    console.log(`Servidor rodando em http://localhost:${port}`);
-  });
+app.listen(port, () => {
+  console.log(`Servidor rodando em http://localhost:${port}`);
 });
