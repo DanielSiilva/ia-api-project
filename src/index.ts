@@ -1,7 +1,6 @@
 import axios from "axios";
 import express, { Request, Response } from "express";
 import { MongoClient } from "mongodb";
-import { clienteKeywords, containsKeyword, produtoKeywords } from "./prompt";
 
 const app = express();
 const port = 3000;
@@ -9,7 +8,7 @@ const port = 3000;
 app.use(express.json());
 
 let collectionUser: any;
-let chatHistory: Array<{ prompt: string; response: string }> = []; // Array para armazenar o histórico
+let chatHistory: Array<{ prompt: string; response: string }> = [];
 
 export async function connectUserCollection() {
   const client = new MongoClient("mongodb://localhost:27017");
@@ -37,18 +36,6 @@ async function getUserData(): Promise<any> {
 async function getModelResponse(prompt: string): Promise<string> {
   const userData = await getUserData();
 
-  let context = {};
-
-  // Verifica se o prompt contém alguma palavra relacionada a "cliente"
-  if (containsKeyword(prompt, clienteKeywords)) {
-    context = userData.clientProfileData;
-  }
-
-  // Verifica se o prompt contém alguma palavra relacionada a "produto"
-  if (containsKeyword(prompt, produtoKeywords)) {
-    context = userData.items;
-  }
-
   try {
     const response = await axios.post(
       "http://34.45.116.129:11434/v1/chat/completions",
@@ -66,11 +53,15 @@ async function getModelResponse(prompt: string): Promise<string> {
           },
           {
             role: "user",
-            content: JSON.stringify(context),
+            content: JSON.stringify(userData?.items),
+          },
+          {
+            role: "user",
+            content: JSON.stringify(userData?.clientProfileData),
           },
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1000,
       }
     );
 
