@@ -40,7 +40,7 @@ async function getModelResponse(prompt: string): Promise<string> {
     const response = await axios.post(
       "http://34.45.116.129:11434/v1/chat/completions",
       {
-        model: "llama3",
+        model: "llama3.1:8b",
         messages: [
           {
             role: "system",
@@ -60,8 +60,8 @@ async function getModelResponse(prompt: string): Promise<string> {
             content: JSON.stringify(userData?.clientProfileData),
           },
         ],
-        temperature: 0.7,
-        max_tokens: 1000,
+        temperature: 0,
+        max_tokens: 200,
       }
     );
 
