@@ -1,6 +1,7 @@
 import axios from "axios";
 import express, { Request, Response } from "express";
 import { MongoClient } from "mongodb";
+import { clienteKeywords, containsKeyword, produtoKeywords } from "./prompt";
 
 const app = express();
 const port = 3000;
@@ -8,6 +9,7 @@ const port = 3000;
 app.use(express.json());
 
 let collectionUser: any;
+let chatHistory: Array<{ prompt: string; response: string }> = []; // Array para armazenar o histórico
 
 export async function connectUserCollection() {
   const client = new MongoClient("mongodb://localhost:27017");
@@ -34,13 +36,17 @@ async function getUserData(): Promise<any> {
 
 async function getModelResponse(prompt: string): Promise<string> {
   const userData = await getUserData();
-  console.log("userData", userData);
 
   let context = {};
 
-  // Mudar o contexto dependendo doque o usuario perguntar
-  if (prompt.toLowerCase().includes("cliente")) {
+  // Verifica se o prompt contém alguma palavra relacionada a "cliente"
+  if (containsKeyword(prompt, clienteKeywords)) {
     context = userData.clientProfileData;
+  }
+
+  // Verifica se o prompt contém alguma palavra relacionada a "produto"
+  if (containsKeyword(prompt, produtoKeywords)) {
+    context = userData.items;
   }
 
   try {
@@ -52,7 +58,7 @@ async function getModelResponse(prompt: string): Promise<string> {
           {
             role: "system",
             content:
-              "You are a specialist assistant. You should answer all questions in Portuguese, always in a direct manner. At the end of each response, say: 'Gostaria de saber se você precisa de mais alguma coisa.' When responding, always refer to the clientProfileData field in the provided context (in JSON format). If the requested information is not present in this field, state that the information was not found or provide the closest possible answer, always considering the context.",
+              " You are a specialist assistant. Answer all questions in Portuguese, and always be clear and direct. Only provide the information requested by the user. At the end of each response, say: Gostaria de saber se você precisa de mais alguma coisa. When responding, always refer to the clientProfileData field in the provided context (in JSON format). If the requested information is not present in this field, state that the information was not found. Do not provide additional information beyond what was asked.",
           },
           {
             role: "user",
@@ -68,9 +74,12 @@ async function getModelResponse(prompt: string): Promise<string> {
       }
     );
 
-    console.log("🚀 ~ response:", response.data);
+    const responseData = response.data.choices[0].message.content;
 
-    return response.data.choices[0].message.content;
+    // Armazenar no histórico
+    chatHistory.push({ prompt, response: responseData });
+
+    return responseData;
   } catch (error) {
     throw new Error(`Erro ao executar comandos: ${error}`);
   }
@@ -79,10 +88,20 @@ async function getModelResponse(prompt: string): Promise<string> {
 app.post("/chat", async (req: Request, res: Response) => {
   const { prompt } = req.body;
 
-  console.log("prompt", prompt);
+  //console.log("prompt", prompt);
 
   try {
+    // Transformar isso em uma no runtask
     const response = await getModelResponse(prompt);
+
+    // Exibir histórico no console
+    console.log("Histórico do chat:");
+    chatHistory.forEach((entry, index) => {
+      console.log(`Interação ${index + 1}:`);
+      console.log(`Usuário perguntou: ${entry.prompt}`);
+      console.log(`Llama respondeu: ${entry.response}`);
+    });
+
     res.json({ response });
   } catch (error: any) {
     console.error("Erro no chat:", error);
