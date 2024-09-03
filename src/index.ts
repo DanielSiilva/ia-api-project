@@ -32,7 +32,6 @@ async function getModelResponse(
   );
 
   const content = externalApiResponse.data?.data[0];
-
   try {
     const response = await axios.post(
       "http://34.45.116.129:11434/v1/chat/completions",
