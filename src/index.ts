@@ -48,7 +48,7 @@ async function getModelResponse(
           },
           {
             role: roleUser,
-            content: JSON.stringify(content),
+            content: content,
           },
         ],
         temperature: temperature,
