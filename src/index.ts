@@ -14,9 +14,9 @@ async function getModelResponse(
   filter: any,
   roleSystem: string,
   contentSystem: string,
-  temperature: number,
-  max_tokens: number,
-  roleUser: string
+  temperature?: number,
+  max_tokens?: number,
+  roleUser?: string
 ): Promise<string> {
   const externalApiResponse = await axios.post(
     "https://api.devel.runtask.com/api/mp_packages_tratado/filter?$size=50&$page=1",
@@ -31,28 +31,23 @@ async function getModelResponse(
     }
   );
 
-  const content = externalApiResponse.data?.data[0];
+  const content = externalApiResponse.data?.data[1];
+
+  //console.log("content", JSON.stringify(content));
   try {
     const response = await axios.post(
       "http://34.45.116.129:11434/v1/chat/completions",
       {
-        model: "llama3.1:8b",
+        model: "llama3-gradient",
         messages: [
           {
-            role: roleSystem,
-            content: contentSystem,
-          },
-          {
-            role: roleUser,
-            content: prompt,
-          },
-          {
-            role: roleUser,
-            content: content,
+            role: "user",
+            content: `${prompt} - ${JSON.stringify(content)}`,
           },
         ],
-        temperature: temperature,
-        max_tokens: max_tokens,
+        options: {
+          num_ctx: 700000,
+        },
       }
     );
 
@@ -88,14 +83,6 @@ app.post("/chat", async (req: Request, res: Response) => {
       max_tokens,
       roleUser
     );
-
-    // Exibir histórico no console
-    console.log("Histórico do chat:");
-    chatHistory.forEach((entry, index) => {
-      console.log(`Interação ${index + 1}:`);
-      console.log(`Usuário perguntou: ${entry.prompt}`);
-      console.log(`Llama respondeu: ${entry.response}`);
-    });
 
     res.json({ response });
   } catch (error: any) {
