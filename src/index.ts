@@ -1,40 +1,37 @@
 import axios from "axios";
 import express, { Request, Response } from "express";
-import { MongoClient } from "mongodb";
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-let collectionUser: any;
 let chatHistory: Array<{ prompt: string; response: string }> = [];
 
-export async function connectUserCollection() {
-  const client = new MongoClient("mongodb://localhost:27017");
-  await client.connect();
-  collectionUser = client.db("vtex_test_ia").collection("vtex_pacotes");
-}
+// Executar a função - consulta runtask.
+async function getModelResponse(
+  prompt: string,
+  filter: any,
+  roleSystem: string,
+  contentSystem: string,
+  temperature: number,
+  max_tokens: number,
+  roleUser: string
+): Promise<string> {
+  const externalApiResponse = await axios.post(
+    "https://api.devel.runtask.com/api/mp_packages_tratado/filter?$size=50&$page=1",
+    {
+      filter: filter,
+    },
+    {
+      headers: {
+        Authorization:
+          "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTM2NSwiaWF0IjoxNzAxMTAzOTM4fQ.4z3rzM5fq4_65_BBuaau5QyRf3DZNTHjOm6EceeQ7Nk",
+      },
+    }
+  );
 
-async function getUserData(): Promise<any> {
-  const client = new MongoClient("mongodb://localhost:27017", {});
-
-  try {
-    await client.connect();
-    const collectionUser = client.db("vtex_test_ia").collection("vtex_pacotes");
-
-    const userData = await collectionUser.findOne({ orderId: "v774982crb-01" });
-
-    return userData;
-  } catch (error) {
-    throw new Error(`Erro ao buscar dados do usuário: ${error}`);
-  } finally {
-    await client.close();
-  }
-}
-
-async function getModelResponse(prompt: string): Promise<string> {
-  const userData = await getUserData();
+  const content = externalApiResponse.data?.data[0];
 
   try {
     const response = await axios.post(
@@ -43,25 +40,20 @@ async function getModelResponse(prompt: string): Promise<string> {
         model: "llama3.1:8b",
         messages: [
           {
-            role: "system",
-            content:
-              " You are a specialist assistant. Answer all questions in Portuguese, and always be clear and direct. Only provide the information requested by the user. At the end of each response, say: Gostaria de saber se você precisa de mais alguma coisa. When responding, always refer to the clientProfileData field in the provided context (in JSON format). If the requested information is not present in this field, state that the information was not found. Do not provide additional information beyond what was asked.",
+            role: roleSystem,
+            content: contentSystem,
           },
           {
-            role: "user",
+            role: roleUser,
             content: prompt,
           },
           {
-            role: "user",
-            content: JSON.stringify(userData?.items),
-          },
-          {
-            role: "user",
-            content: JSON.stringify(userData?.clientProfileData),
+            role: roleUser,
+            content: JSON.stringify(content),
           },
         ],
-        temperature: 0,
-        max_tokens: 200,
+        temperature: temperature,
+        max_tokens: max_tokens,
       }
     );
 
@@ -77,13 +69,26 @@ async function getModelResponse(prompt: string): Promise<string> {
 }
 
 app.post("/chat", async (req: Request, res: Response) => {
-  const { prompt } = req.body;
-
-  //console.log("prompt", prompt);
+  const {
+    prompt,
+    filter,
+    roleSystem,
+    contentSystem,
+    temperature,
+    max_tokens,
+    roleUser,
+  } = req.body;
 
   try {
-    // Transformar isso em uma no runtask
-    const response = await getModelResponse(prompt);
+    const response = await getModelResponse(
+      prompt,
+      filter,
+      roleSystem,
+      contentSystem,
+      temperature,
+      max_tokens,
+      roleUser
+    );
 
     // Exibir histórico no console
     console.log("Histórico do chat:");
